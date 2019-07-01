@@ -51,6 +51,14 @@ enum BATTLE
 	BATTLE_BACK //도망
 };
 
+enum STORE_MENU
+{
+	SM_NONE,
+	SM_WEAPON,
+	SM_ARMOR,
+	SM_BACK
+};
+
 //매크로 정의 각각의 사이즈들을 정해준다.
 #define	NAME_SIZE	32 //이름길이
 #define	ITEM_DESC_LENGTH	512 //아이템설명길이
@@ -58,9 +66,6 @@ enum BATTLE
 #define	STORE_WEAPON_MAX	3 //상점무기최대크기
 #define	STORE_ARMOR_MAX		3//상점방어구최대크기
 #define	LEVEL_MAX			10//맥스레벨크기
-
-const int	iLevelUpExp[LEVEL_MAX] = { 4000, 10000, 20000, 35000, 50000, 70000, 100000, 150000, 200000, 400000 };
-//경험치 테이블 전역변수
 
 struct _tagItem //아이템 구조체
 {
@@ -117,6 +122,23 @@ struct _tagMonster // 몬스터 구조체
 	int		iGoldMin;
 	int		iGoldMax;
 };
+
+struct _tagLevelUpStatus 
+{
+	int	iAttackMin;
+	int	iAttackMax;
+	int	iArmorMin;
+	int	iArmorMax;
+	int	iHPMin;
+	int	iHPMax;
+	int	iMPMin;
+	int	iMPMax;
+};
+
+const int	iLevelUpExp[LEVEL_MAX] = { 4000, 10000, 20000, 35000, 50000, 70000, 100000, 150000, 200000, 400000 };
+//경험치 테이블 전역변수
+
+_tagLevelUpStatus tLvUpTable[JOB_END - 1] = {};
 
 int Input() { //메뉴나 전투등등 입력을 받기위한 함수
 	int iInput; 
@@ -359,7 +381,139 @@ void setMonster(_tagMonster *pMonsterArr) { //몬스터 세팅함수
 	
 }
 
-void Battle(_tagPlayer *pPlayer, _tagMonster *pMonsterArr, int imenu) { //배틀을 위한 함수
+void Battle(_tagPlayer *pPlayer, _tagMonster *pMonster) {
+
+	// 예를 들어 Min 5 Max 15 라고 가정할 경우 
+	// 15 - 5 + 1 을 하면 11이 된다. 11로 나눈 나머지는 0 ~ 10이
+	// 나오게 되고 여기에 Min값인 5를 더하게 되면
+	// 5 ~ 15 사이로 값이 나오게 되는것이다.
+	int	iAttackMin = pPlayer->iAttackMin;
+	int	iAttackMax = pPlayer->iAttackMax;
+
+	// 무기를 장착하고 있을 경우 무기와 Min, Max를 더해준다.
+	if (pPlayer->bEquip[EQ_WEAPON])
+	{
+		iAttackMin += pPlayer->tEquip[EQ_WEAPON].iMin;
+		iAttackMax += pPlayer->tEquip[EQ_WEAPON].iMax;
+	}
+
+	int	iAttack = rand() % (iAttackMax - iAttackMin + 1) +
+		iAttackMin;
+	int	iArmor = rand() % (pMonster->iArmorMax - pMonster->iArmorMin + 1) +
+		pMonster->iArmorMin;
+
+	int	iDamage = iAttack - iArmor;
+	// 삼항연산자 : 조건식 ? true일때값 : false일때값;
+	//if (iDamage < 1)
+	//	iDamage = 1;
+	iDamage = iDamage < 1 ? 1 : iDamage;
+
+	// 몬스터 HP를 감소시킨다.
+	pMonster->iHP -= iDamage;
+
+	cout << pPlayer->strName << " 가 " << pMonster->strName <<
+		"에게 " << iDamage << " 피해를 입혔습니다." << endl;
+
+	// 몬스터가 죽었을 경우를 처리한다.
+	if (pMonster->iHP <= 0)
+	{
+		cout << pMonster->strName << " 몬스터가 사망하였습니다." << endl;
+
+		pPlayer->iExp += pMonster->iExp;
+		int	iGold = (rand() % (pMonster->iGoldMax - pMonster->iGoldMin + 1) +
+			pMonster->iGoldMin);
+		pPlayer->tInventory.iGold += iGold;
+
+		cout << pMonster->iExp << " 경험치를 획득하였습니다." << endl;
+		cout << iGold << " Gold를 획득하였습니다." << endl;
+
+		pMonster->iHP = pMonster->iHPMax;
+		pMonster->iMP = pMonster->iMPMax;
+
+		// 레벨업을 했는지 체크해본다.
+		if (pPlayer->iExp >= iLevelUpExp[pPlayer->iLevel - 1])
+		{
+			// 플레이어 경험치를 레벨업에 필요한 경험치만큼 차감한다.
+			pPlayer->iExp -= iLevelUpExp[pPlayer->iLevel - 1];
+
+			// 레벨을 증가시킨다.
+			++pPlayer->iLevel;
+
+			cout << "레벨업 하였습니다." << endl;
+
+			// 능력치를 상승시킨다.
+			// 직업 인덱스를 구한다.
+			int	iJobIndex = pPlayer->eJob - 1;
+			int	iHPUp = rand() % (tLvUpTable[iJobIndex].iHPMax - tLvUpTable[iJobIndex].iHPMin + 1) +
+				tLvUpTable[iJobIndex].iHPMin;
+			int	iMPUp = rand() % (tLvUpTable[iJobIndex].iMPMax - tLvUpTable[iJobIndex].iMPMin + 1) +
+				tLvUpTable[iJobIndex].iMPMin;
+
+			pPlayer->iAttackMin += tLvUpTable[iJobIndex].iAttackMin;
+			pPlayer->iAttackMax += tLvUpTable[iJobIndex].iAttackMax;
+			pPlayer->iArmorMin += tLvUpTable[iJobIndex].iArmorMin;
+			pPlayer->iArmorMax += tLvUpTable[iJobIndex].iArmorMax;
+
+			pPlayer->iHPMax += iHPUp;
+			pPlayer->iMPMax += iMPUp;
+
+			// 체력과 마나를 회복시킨다.
+			pPlayer->iHP = pPlayer->iHPMax;
+			pPlayer->iMP = pPlayer->iMPMax;
+		}
+		return;
+	}
+
+	// 몬스터가 살아있다면 플레이어를 공격한다.
+	iAttack = rand() % (pMonster->iAttackMax - pMonster->iAttackMin + 1) +
+		pMonster->iAttackMin;
+
+	int	iArmorMin = pPlayer->iArmorMin;
+	int	iArmorMax = pPlayer->iArmorMax;
+
+	if (pPlayer->bEquip[EQ_ARMOR])
+	{
+		iArmorMin += pPlayer->tEquip[EQ_ARMOR].iMin;
+		iArmorMax += pPlayer->tEquip[EQ_ARMOR].iMax;
+	}
+
+	iArmor = rand() % (iArmorMax - iArmorMin + 1) +
+		iArmorMin;
+
+	iDamage = iAttack - iArmor;
+	// 삼항연산자 : 조건식 ? true일때값 : false일때값;
+	//if (iDamage < 1)
+	//	iDamage = 1;
+	iDamage = iDamage < 1 ? 1 : iDamage;
+
+	// 플레이어의 HP를 감소시킨다.
+	pPlayer->iHP -= iDamage;
+
+	cout << pMonster->strName << " 가 " << pPlayer->strName <<
+		"에게 " << iDamage << " 피해를 입혔습니다." << endl;
+
+	// 플레이어가 죽었을 경우
+	if (pPlayer->iHP <= 0)
+	{
+		cout << pPlayer->strName << " 플레이어가 사망하였습니다." << endl;
+
+		int	iExp = pPlayer-> iExp * 0.1f;
+		int	iGold = pPlayer->tInventory.iGold * 0.1f;
+
+		pPlayer->iExp -= iExp;
+		pPlayer->tInventory.iGold -= iGold;
+
+		cout << iExp << " 경험치를 잃었습니다." << endl;
+		cout << iGold << " Gold를 잃었습니다." << endl;
+
+		// 플레이어의 HP와 MP를 회복한다.
+		pPlayer->iHP = pPlayer->iHPMax;
+		pPlayer->iMP = pPlayer->iMPMax;
+	}
+}
+
+
+void runBattle(_tagPlayer *pPlayer, _tagMonster *pMonsterArr, int imenu) { //배틀을 위한 함수
 
 	
 	while (true) {
@@ -374,6 +528,8 @@ void Battle(_tagPlayer *pPlayer, _tagMonster *pMonsterArr, int imenu) { //배틀을
 		switch (BattleMenu())
 		{
 		case BATTLE_ATTACK:
+			Battle(pPlayer, &pMonsterArr[imenu - 1]);
+			system("pause");
 			break;
 		case BATTLE_BACK:
 			return;
@@ -393,8 +549,170 @@ void runMap(_tagPlayer *pPlayer, _tagMonster *pMonsterArr) {
 
 		//전투를 시작한다
 
-		Battle(pPlayer, pMonsterArr, imenu);
+		runBattle(pPlayer, pMonsterArr, imenu);
 	}
+}
+
+_tagLevelUpStatus CreateLupStatus(int iAttackMin , int iAttackMax, int iArmorMin, int iArmorMax,
+	int iHPMin, int iHPMax, int iMPMin, int iMPMax) 
+{
+	_tagLevelUpStatus status = {};
+
+	status.iAttackMin = iAttackMin;
+	status.iAttackMax = iAttackMax;
+	status.iArmorMin = iArmorMin;
+	status.iArmorMax = iArmorMax;
+	status.iHPMin = iHPMin;
+	status.iHPMax = iHPMax;
+	status.iMPMin = iMPMin;
+	status.iMPMax = iMPMax;
+
+
+	return status;
+}
+
+int OPstoreMenu() {
+	while (true)
+	{
+		system("cls");
+		cout << "*************************** 상점 ***************************" << endl;
+		cout << "1. 무기상점" << endl;
+		cout << "2. 방어구상점" << endl;
+		cout << "3. 뒤로가기" << endl;
+		cout << "상점을 선택하세요 : ";
+		int imenu = Input();
+
+		if (imenu == INT_MAX || imenu <= SM_NONE || imenu > SM_BACK)
+			return SM_NONE;
+
+		return imenu;
+	}
+}
+
+int OPitemStorList(_tagInventory *pInventory, _tagItem *pStore, int iItemcount) {
+	for (int i = 0; i <iItemcount; ++i)
+	{
+		cout << i + 1 << ". 이름 : " << pStore[i].strName <<
+			"\t종류 : " << pStore[i].strTypeName << endl;
+		cout << "공격력 : " << pStore[i].iMin << " - " <<
+			pStore[i].iMax << endl;
+		cout << "판매가격 : " << pStore[i].iPrice <<
+			"\t구매가격 : " << pStore[i].iSell << endl;
+		cout << "설명 : " << pStore[i].strDesc << endl << endl;
+	}
+
+	cout << iItemcount + 1 << ". 뒤로가기" << endl;
+	cout << "보유금액 : " << pInventory->iGold << " Gold" << endl;
+	cout << "남은공간 : " << INVENTORY_MAX - pInventory->iItemCount << endl;
+	cout << "구입할 아이템을 선택하세요 : ";
+	int imenu = Input();
+
+	if (imenu <1 || imenu>iItemcount + 1)
+		return INT_MAX;
+
+}
+
+void BuyItem(_tagInventory *pInventory, _tagItem *pStore,  int itemcount, int storeType) {
+	while (true)
+	{
+		system("cls");
+		switch (storeType)
+		{
+		case SM_WEAPON:
+			cout << "*************************** 무기상점 ***************************" << endl;
+			break;
+		case SM_ARMOR:
+			cout << "*************************** 방어구상점 ***************************" << endl;
+			break;
+		}
+		int iInput = OPitemStorList(pInventory, pStore, itemcount);
+
+		if (iInput == INT_MAX) {
+			cout << "잘못 입력하였습니다" << endl;
+			system("pause");
+			continue;
+		}
+
+		else if (iInput == itemcount + 1)
+			break;
+
+		// 상점판매목록 배열의 인덱스를 구해준다.
+		int	iIndex = iInput - 1;
+
+		// 인벤토리가 꽉 찼는지 검사한다.
+		if (pInventory->iItemCount == INVENTORY_MAX)
+		{
+			cout << "가방이 꽉 찼습니다." << endl;
+			system("pause");
+			continue;
+		}
+
+		// 돈이 부족할 경우
+		else if (pInventory->iGold < pStore[iIndex].iPrice)
+		{
+			cout << "보유금액이 부족합니다." << endl;
+			system("pause");
+			continue;
+		}
+
+		// 처음에 iItemCount는 하나도 추가되어있지 않기 때문에 0으로 초기화
+		// 되어 있으므로 0번 인덱스에 구매한 아이템을 추가하게 된다. 그리고
+		// 카운트가 1이 된다. 다음번에 추가할때는 1번 인덱스에 추가하게된다.
+		pInventory->tItem[pInventory->iItemCount] =
+			pStore[iIndex];
+		++pInventory->iItemCount;
+
+		// 골드를 차감한다.
+		pInventory->iGold -= pStore[iIndex].iPrice;
+
+		cout << pStore[iIndex].strName << " 아이템을 구매하였습니다." << endl;
+		system("pause");
+
+	
+	}
+}
+
+	void runStore(_tagInventory *pInverntory, _tagItem* pWeapon, _tagItem *pArmor) {
+		while (true) {
+			switch (OPstoreMenu())
+			{
+			case SM_WEAPON:
+				BuyItem(pInverntory, pWeapon, STORE_WEAPON_MAX, SM_WEAPON);
+				break;
+			case SM_ARMOR:
+				BuyItem(pInverntory, pArmor, STORE_ARMOR_MAX, SM_ARMOR);
+				break;
+			case SM_BACK:
+				return;
+			}
+		}
+	}
+
+	_tagItem CreateItem(char* pName, ITEM_TYPE eType, int iMin, int iMax, int iPrice, int iSell,
+		char* pDesc) {
+	_tagItem item = {};
+
+	strcpy_s(item.strName, pName);
+	strcpy_s(item.strDesc, pDesc);
+
+	item.eType = eType;
+
+		switch (eType)
+		{
+		case IT_WEAPON:
+			strcpy_s(item.strTypeName, "무기");
+			break;
+		case IT_ARMOR:
+			strcpy_s(item.strTypeName, "방어구");
+			break;
+		}
+		item.iMin = iMin;
+		item.iMax = iMax;
+		item.iPrice = iPrice;
+		item.iSell = iSell;
+
+		return item;
+		
 }
 
 int main() {
@@ -409,6 +727,22 @@ int main() {
 
 	setMonster(tMonsterArr);
 
+	tLvUpTable[JOB_KNIGHT - 1] = CreateLupStatus(4, 10, 8, 16, 50, 100, 10, 20);
+	tLvUpTable[JOB_ARCHER - 1] = CreateLupStatus(10, 15, 5, 10, 30, 60, 30, 50);
+	tLvUpTable[JOB_WIZARD - 1] = CreateLupStatus(15, 20, 3, 7, 20, 40, 50, 100);
+
+	// 상점에서 판매할 아이템 목록을 생성한다.
+	_tagItem	tStoreWeapon[STORE_WEAPON_MAX] = {};
+	_tagItem	tStoreArmor[STORE_ARMOR_MAX] = {};
+
+	tStoreWeapon[0] = CreateItem("목검", IT_WEAPON, 5, 10, 1000, 500, "누군가 쓰다버린 나무칼");
+	tStoreWeapon[1] = CreateItem("한조의 활", IT_WEAPON, 20, 10, 7000, 3500, "류오- 와가테키오 쿠라에");
+	tStoreWeapon[2] = CreateItem("마법사의 양말", IT_WEAPON, 90, 150, 30000, 15000, "된장냄새가난다");
+
+	tStoreArmor[0] = CreateItem("팬티", IT_ARMOR, 2, 5, 1000, 500, "냄새는 나지만 방어력이 오를것같다");
+	tStoreArmor[1] = CreateItem("소가죽 갑옷", IT_ARMOR, 10, 20, 7000, 3500, "소의고기는 누가 먹었을까?");
+	tStoreArmor[2] = CreateItem("아이언맨 슈트", IT_ARMOR, 70, 90, 30000, 15000, "아주 단단하고 유명한 그옷");
+
 
 	while (Loop) { //true인 상태로 무한 루프를 돌게한다
 		switch (OPMainMenu())
@@ -417,6 +751,7 @@ int main() {
 			runMap(&player, tMonsterArr); //맵관련 루프동작을 위한 함수호출
 			break;
 		case MM_STORE:
+			runStore(&player.tInventory, tStoreWeapon, tStoreArmor);
 			break;
 		case MM_INVENTORY:
 			break;
