@@ -142,7 +142,7 @@ int OPMainMenu() { //메인메뉴를 보여는함수, 그리고 입력받은 메뉴를 반환한다
 	int imenu = Input(); //Input함수를 호출하여 반환받은값을 imenu에 값으로 초기화
 
 	if (imenu == INT_MAX || imenu <= MM_NONE || imenu > MM_EXIT) //imenu가 INT_MAX값이거나 MM_NONE=0 이하이거나
-		MM_NONE; //MM_EXIT=4보다 클경우에는 MM_NONE이다.
+		return MM_NONE; //MM_EXIT=4보다 클경우에는 MM_NONE이다.
 
 	return imenu;
 }
@@ -159,7 +159,7 @@ int OPMapMenu() {
 	int imenu = Input(); //Input함수를 호출하여 반환받은값을 imenu에 값으로 초기화
 
 	if (imenu == INT_MAX || imenu <= MT_NONE || imenu > MT_BACK) //imenu가 INT_MAX값이거나 MT_NONE=0 이하이거나
-		MT_NONE; //MT_EXIT=4보다 클경우에는 MT_NONE이다.
+	  return MT_NONE; //MT_EXIT=4보다 클경우에는 MT_NONE이다.
 
 	return imenu;
 
@@ -353,15 +353,15 @@ _tagMonster CreateMonster(char* pName, int iAttackMin, int iAttackMax, int iArmo
 }
 
 void setMonster(_tagMonster *pMonsterArr) { //몬스터 세팅함수
-	pMonsterArr[0] = CreateMonster("최약체", 20, 30, 2, 5, 100, 10, 1, 1000, 500, 1500);
-	pMonsterArr[1] = CreateMonster("갑자기 시비거는 사람", 80, 130, 60, 90, 2000, 100, 5, 7000, 6000, 8000);
-	pMonsterArr[2] = CreateMonster("드래곤", 250, 500, 200, 400, 30000, 20000, 10, 30000, 20000, 50000);
+	pMonsterArr[0] = CreateMonster("난쟁이(하급 몬스터)", 20, 30, 2, 5, 100, 10, 1, 1000, 500, 1500);
+	pMonsterArr[1] = CreateMonster("똥쟁이(몬스터)", 80, 130, 60, 90, 2000, 100, 5, 7000, 6000, 8000);
+	pMonsterArr[2] = CreateMonster("방구쟁이(몬스터)", 250, 500, 200, 400, 30000, 20000, 10, 30000, 20000, 50000);
 	
 }
 
 void Battle(_tagPlayer *pPlayer, _tagMonster *pMonsterArr, int imenu) { //배틀을 위한 함수
 
-	_tagMonster monster = pMonsterArr[MT_BACK - 1];
+	
 	while (true) {
 		system("cls");
 		BattleMode(imenu);
@@ -369,7 +369,7 @@ void Battle(_tagPlayer *pPlayer, _tagMonster *pMonsterArr, int imenu) { //배틀을
 		//플레이어를 출력
 		OPplayer(pPlayer);
 
-		OPmonster(&monster);
+		OPmonster(&pMonsterArr[imenu -1]);
 
 		switch (BattleMenu())
 		{
