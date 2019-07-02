@@ -167,9 +167,12 @@ int OPMainMenu() { //메인메뉴를 보여는함수, 그리고 입력받은 메뉴를 반환한다
 
 	if (imenu == INT_MAX || imenu <= MM_NONE || imenu > MM_EXIT) //imenu가 INT_MAX값이거나 MM_NONE=0 이하이거나
 		return MM_NONE; //MM_EXIT=4보다 클경우에는 MM_NONE이다.
-
-	return imenu;
+	else {
+		return imenu;
+	}
 }
+
+
 
 int OPMapMenu() {
 	system("cls");
@@ -181,12 +184,14 @@ int OPMapMenu() {
 	cout << "5. 뒤로가기" << endl;
 	cout << "맵을 선택하세요 : ";
 
-	int imenu = Input();
+	char imenu = Input();
 
-	if (imenu == INT_MAX || imenu <= MT_NONE || imenu > MT_BACK) //imenu가 INT_MAX값이거나 MT_NONE=0 이하이거나
-	  return MT_NONE; //MT_EXIT=4보다 클경우에는 MT_NONE이다.
-
-	return imenu;
+	if (imenu == INT_MAX || imenu <= MT_NONE || imenu > MT_BACK) //imenu가 INT_MAX값이거나 MM_NONE=0 이하이거나
+		return MT_NONE; //MM_EXIT=4보다 클경우에는 MM_NONE이다.
+	
+	else {
+		return imenu;
+	}
 
 }
 
@@ -769,9 +774,11 @@ void runMap(_tagPlayer *pPlayer, _tagMonster *pMonsterArr) {
 	while (Loop) {//true인 상태로 무한 루프를 돌게한다
 
 		int imenu = OPMapMenu();
-
+		if (MT_NONE == imenu) // 이것떄문에 해맸네 ㅋㅋ
+			continue;
 		if (MT_BACK == imenu)
 			return;
+		 
 
 		//전투를 시작한다
 
